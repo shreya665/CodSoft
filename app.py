@@ -1,56 +1,30 @@
+import pickle
+import xgboost as xgb
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 
-# Load dataset
-data = pd.read_csv('C:/Users/admin/Desktop/Customer churn prediction/Gradient_model.pkl')
+# Load the model from the file
+with open('C:/Users/admin/Desktop/CodSoft Internship 2024/xgboost_model.pkl', 'rb') as file:
+    model = pickle.load(file)
 
-# Data preprocessing (handle missing values, encode categorical variables)
 
-# Feature selection and engineering
-
-# Split data into training and testing sets
-X = data.drop('Churn', axis=1)
-y = data['Churn']
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# Initialize model
-model = RandomForestClassifier(random_state=42)
-
-# Train the model
-model.fit(X_train, y_train)
-
-# Predict on test data
-y_pred = model.predict(X_test)
-
-# Evaluate model performance
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print(classification_report(y_test, y_pred))
-
-from flask import Flask, request, jsonify, render_template
-import joblib
+# Function to predict fraud on new data
+def predict_fraud(transaction):
+    transaction = np.array([transaction])
+    dmatrix = xgb.DMatrix(transaction)
+    prediction = model.predict(dmatrix)
+    return int(prediction[0])
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Load the trained model
-model = joblib.load('C:/User/admin/Desktop/Customer churn prediction/Gradient_model.pkl')
-
-app.route('/')
-def home():
-    return render_template('index.html')
-
 app.route('/predict', methods=['POST'])
 def predict():
-    # Get data from the POST request
-    int_features = [float(x) for x in request.form.values()]
-    final_features = [int_features]  # If your model expects a 2D array
-
-    # Make prediction
-    prediction = model.predict(final_features)
-
-    # Return prediction as JSON
-    return jsonify({'prediction': prediction})
+    data = request.get_json(force=True)
+    transaction = np.array(data['transaction'])
+    prediction = predict_fraud(transaction)
+    return jsonify({'fraud': prediction})
 
 if __name__ == '__main__':
     app.run(debug=True)
