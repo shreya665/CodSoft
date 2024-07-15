@@ -1,31 +1,44 @@
+import streamlit as st
+# import sklearn
+import sklearn
 import pickle
-import xgboost as xgb
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-
-# Load the model from the file
-with open('C:/Users/admin/Desktop/CodSoft Internship 2024/xgboost_model.pkl', 'rb') as file:
-    model = pickle.load(file)
-
-
-# Function to predict fraud on new data
-def predict_fraud(transaction):
-    transaction = np.array([transaction])
-    dmatrix = xgb.DMatrix(transaction)
-    prediction = model.predict(dmatrix)
-    return int(prediction[0])
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-app.route('/predict', methods=['POST'])
-def predict():
-    data = request.get_json(force=True)
-    transaction = np.array(data['transaction'])
-    prediction = predict_fraud(transaction)
-    return jsonify({'fraud': prediction})
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
+import string
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize, sent_tokenize
+nltk.download('stopwords')
+nltk.download('punkt')
+from nltk.stem import PorterStemmer
+port_stemmer = PorterStemmer()
+tfidf = pickle.load(open('C:/Users/admin/Desktop/Spam Classifier Project/vectorizer.pkl', 'rb'))
+model = pickle.load(open('C:/Users/admin/Desktop/Spam Classifier Project/model.pkl', 'rb'))
+# Create a function to generate cleaned data from raw text
+def clean_text(text):
+    text = word_tokenize(text) # Create tokens
+    text= " ".join(text) # Join tokens
+    text = [char for char in text if char not in string.punctuation] # Remove punctuations
+    text = ''.join(text) # Join the leters
+    text = [char for char in text if char not in re.findall(r"[0-9]", text)] # Remove Numbers
+    text = ''.join(text) # Join the leters
+    text = [word.lower() for word in text.split() if word.lower() not in set(stopwords.words('english'))] # Remove common english words (I, you, we,...)
+    text = ' '.join(text) # Join the leters
+    text = list(map(lambda x: port_stemmer.stem(x), text.split()))
+    return " ".join(text)   # error word
+st.title('SMS Spam Classifier')
+input_sms = st.text_input("Enter the Message")
+if st.button('Predict'):
+    if input_sms == "":
+        st.header('Please Enter Your Message !!!')
+    else:
+        # 1. Preprocess
+        transform_text = clean_text(input_sms)
+        # 2. Vectorize
+        vector_input = tfidf.transform([transform_text])
+        # 3. Prediction
+        result = model.predict(vector_input)
+        # 4. Display
+        if result == 1:
+            st.header("Spam")
+        else:
+            st.header("Not Spam")
